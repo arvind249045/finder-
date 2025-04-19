@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+sse-starlette
+python-dotenv # Optional, but good practice for env vars if needed later

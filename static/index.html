@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BetterHarvester</title>
+    <script type="module" crossorigin src="/assets/index-b1384274.js"></script>
+    <link rel="stylesheet" href="/assets/index-e710a981.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    
+  </body>
+</html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Finder</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <h1>Email Finder</h1>
+<p class="subtitle" style="text-align:center;">Type in the domain and this looks for all available emails all over the internet.</p>
+
+    <div class="container">
+        <label for="domainInput">Domain Name:</label>
+        <input type="text" id="domainInput" placeholder="e.g., example.com" required>
+        <button id="runButton">Run</button>
+    </div>
+    <div style="text-align:center;margin:16px 0;">
+        <button id="proTipBtn" style="padding:8px 16px;font-size:1rem;cursor:pointer;">Pro Tip</button>
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const proTipBtn = document.getElementById('proTipBtn');
+        if (proTipBtn) {
+          proTipBtn.addEventListener('click', function() {
+            alert("Pro Tip: Chances are you're not gonna get the exact email you want but whatever you find should be enough to find a pattern.");
+          });
+        }
+      });
+    </script>
+    <div id="loadingBar" class="loading-bar" style="display:none;">
+        <div class="loading-bar-inner"></div>
+    </div>
+
+    <div class="centered-results-container" id="centeredResults" style="display:none;">
+        <div class="results-box">
+            <h2>Scan Results</h2>
+            <div id="resultsSummary"></div>
+            <button id="csvExportBtn" style="display:none;">Export as CSV</button>
+        </div>
+    </div>
+    <div class="output-container">
+        <h2>Status: <span id="status">Idle</span></h2>
+        <div id="loadingSection" style="display:none;">
+            <div id="countdown" class="countdown-timer">Estimated time: <span id="timer">1:43</span></div>
+            <div id="loadingBar" class="loading-bar">
+                <div class="loading-bar-inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const domainInput = document.getElementById('domainInput');
+        const runButton = document.getElementById('runButton');
+        const statusSpan = document.getElementById('status');
+        const resultsSummaryDiv = document.getElementById('resultsSummary');
+        const loadingSection = document.getElementById('loadingSection');
+        const countdownDiv = document.getElementById('countdown');
+        const timerSpan = document.getElementById('timer');
+        let eventSource = null;
+        let countdownInterval = null;
+        let totalSeconds = 103; // 1:43 in seconds
+
+        // Allow pressing Enter in the input to trigger Run
+        domainInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                runButton.click();
+            }
+        });
+
+        runButton.addEventListener('click', () => {
+            const domain = domainInput.value.trim();
+            if (!domain) {
+                alert('Please enter a domain name.');
+                return;
+            }
+
+            // Clear previous results and reset UI for a new query
+            resultsSummaryDiv.innerHTML = '';
+            statusSpan.textContent = 'Processing...';
+            statusSpan.className = 'processing';
+            runButton.disabled = true;
+            document.body.classList.add('processing');
+            loadingSection.style.display = 'block';
+            countdownDiv.style.display = 'block';
+            timerSpan.textContent = '1:43';
+            totalSeconds = 103;
+            // Reset results, hide previous results box, show output container
+            document.getElementById('centeredResults').style.display = 'none';
+            document.querySelector('.output-container').style.display = 'block';
+
+            // Start countdown
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                totalSeconds--;
+                if (totalSeconds > 0) {
+                    const min = Math.floor(totalSeconds / 60);
+                    const sec = totalSeconds % 60;
+                    timerSpan.textContent = `${min}:${sec.toString().padStart(2, '0')}`;
+                } else {
+                    countdownDiv.textContent = 'This is taking longer than expected...';
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
+
+            // Close existing EventSource if any
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            // Establish SSE connection
+            const url = `/run_harvester?domain=${encodeURIComponent(domain)}`;
+            eventSource = new EventSource(url);
+
+
+            eventSource.addEventListener('final_data', (event) => {
+                statusSpan.textContent = 'Completed';
+                statusSpan.className = 'completed';
+                runButton.disabled = false;
+                eventSource.close();
+                document.body.classList.remove('processing');
+                loadingSection.style.display = 'none';
+                if (countdownInterval) clearInterval(countdownInterval);
+
+                // Show centered results box
+                document.getElementById('centeredResults').style.display = 'flex';
+                // Hide output container
+                document.querySelector('.output-container').style.display = 'none';
+
+                try {
+                    const results = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                    let resultsHTML = '';
+                    const domain = results.domain || '';
+                    const emails = results.emails || [];
+                    const count = results.count || 0;
+
+                    resultsHTML += `<div class='email-count'>Total unique emails found: <strong>${count}</strong></div>`;
+                    if (emails.length > 0) {
+                        resultsHTML += '<ul class="email-list">';
+                        emails.forEach(email => {
+                            resultsHTML += `<li>${escapeHtml(email)}</li>`;
+                        });
+                        resultsHTML += '</ul>';
+                        document.getElementById('csvExportBtn').style.display = 'inline-block';
+                        document.getElementById('csvExportBtn').onclick = function() {
+                            exportEmailsToCSV(domain, emails);
+                        };
+                    } else {
+                        resultsHTML += '<p>No emails found.</p>';
+                        document.getElementById('csvExportBtn').style.display = 'none';
+                    }
+                    resultsSummaryDiv.innerHTML = resultsHTML;
+                } catch (e) {
+                    console.error('Error parsing final data:', e);
+                    resultsSummaryDiv.innerHTML = '<p>Error displaying final results.</p>';
+                    statusSpan.textContent = 'Error (Parsing Results)';
+                    statusSpan.className = 'error';
+                }
+            });
+
+            function exportEmailsToCSV(domain, emails) {
+                let csvContent = 'domain,email\n';
+                emails.forEach(email => {
+                    csvContent += `${domain},${email}\n`;
+                });
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${domain}_emails.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            eventSource.addEventListener('error', (event) => {
+                let errorMessage = 'An unknown error occurred.';
+                if (event.data) {
+                    errorMessage = event.data;
+                } else if (event.target && event.target.readyState === EventSource.CLOSED) {
+                     errorMessage = 'Connection closed unexpectedly. Check server logs.';
+                }
+                console.error('SSE Error:', errorMessage);
+                statusSpan.textContent = 'Error';
+                statusSpan.className = 'error';
+                resultsSummaryDiv.innerHTML = `<p><strong>Error:</strong> ${escapeHtml(errorMessage)}</p>`;
+                runButton.disabled = false;
+                document.body.classList.remove('processing');
+                loadingSection.style.display = 'none';
+                if (countdownInterval) clearInterval(countdownInterval);
+                if (eventSource) {
+                    eventSource.close();
+                }
+            });
+
+            eventSource.onerror = (error) => {
+                // This often triggers when the connection closes normally or on server errors
+                // Use the specific 'error' event listener above for server-sent errors
+                console.error('Generic EventSource error:', error);
+                 if (statusSpan.textContent === 'Processing...') {
+                      statusSpan.textContent = 'Error (Connection)';
+                      statusSpan.className = 'error';
+                      resultsSummaryDiv.innerHTML = '<p>Could not connect to the server or the connection was lost.</p>';
+                 }
+                runButton.disabled = false;
+                if (eventSource) {
+                   eventSource.close();
+                }
+            };
+        });
+
+        // Simple HTML escaping function
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return '';
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
