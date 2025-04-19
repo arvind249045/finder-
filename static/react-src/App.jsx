@@ -49,7 +49,7 @@ export default function App() {
   return (
     <Container centerContent py={10}>
       <VStack spacing={6} w="100%" maxW="md">
-        <Heading>Better Harvester</Heading>
+        <Heading>Email Finder</Heading>
         <Input
           placeholder="Enter domain (e.g., example.com)"
           value={domain}
