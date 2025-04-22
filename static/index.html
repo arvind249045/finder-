@@ -21,13 +21,19 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <div style="position: absolute; top: 20px; left: 32px; z-index: 10; font-size: 2rem; font-family: 'Segoe UI', Arial, sans-serif; font-weight: bold; letter-spacing: -1px;">
+      <span style="color: #000;">Reach</span><span style="color: #FF8855;">Wise</span>
+    </div>
 
-    <h1>Email Finder</h1>
+    <h1 style="margin-left: 0;">Email Finder</h1>
 <p class="subtitle" style="text-align:center;">Type in the domain and this looks for all available emails all over the internet.</p>
 
     <div class="container">
         <label for="domainInput">Domain Name:</label>
         <input type="text" id="domainInput" placeholder="e.g., example.com" required>
+        <div style="font-size: 0.95rem; color: #888; margin: 4px 0 10px 0;">
+          Please enter a domain in the format <strong>example.com</strong> (all lowercase, no <code>http://</code>, <code>https://</code>, or slashes). Only plain domains are allowed.
+        </div>
         <button id="runButton">Run</button>
     </div>
     <div style="text-align:center;margin:16px 0;">
